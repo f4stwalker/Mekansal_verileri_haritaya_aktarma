@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Kahramankazan - Mekansal Veri Haritası</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        /* Ana Stiller */
+        html,body{
+            height:100%;
+            margin:0;
+            font-family:Arial,Helvetica,sans-serif;
+            background-color: #DDDDDD; /* YENİ: Açık Gri Arka Plan */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Başlık Alanı Stili (Koyu Kömür Rengi) */
+        #header-title {
+            background-color: #2C3E50; /* YENİ: Koyu Kömür Rengi */
+            color: white; /* Metin rengi beyaz */
+            padding: 20px;
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 550;
+        }
+        
+        /* Harita Kapsayıcı ve Kontrol Paneli'nin Ana Alanı */
+        .main-content {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: flex-start;
+            flex-grow: 1;
+            padding: 20px 0;
+            box-sizing: border-box;
+            min-height: 0; 
+        }
+        
+        /* Harita Alanı Stili (Boyut korundu, Çerçeve Rengi Değişti) */
+        #map {
+            width: 119vh;
+            height: 82vh;
+            
+            max-width: 95%; 
+            max-height: 95%;
+            margin: 0;
+            border: 3px solid #2C3E50; /* YENİ: Koyu Kömür Çerçeve */
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+            z-index: 500;
+        } 
+
+        /* Kontroller: Haritanın Yanında Dursun */
+        .controls{
+            position: static;
+            background:rgba(255,255,255,0.95);
+            padding:15px;
+            border-radius:6px;
+            box-shadow:0 2px 10px rgba(0,0,0,.15);
+            margin-left: 30px; 
+            min-width: 200px;
+            align-self: flex-start;
+            z-index:520;
+        }
+        .controls strong{display:block;margin-bottom:10px;color:#2C3E50; font-size: 16px;} /* YENİ: Kontrol başlığı Koyu Kömür Rengi */
+        .controls label{display:block;margin:6px 0;cursor:pointer;font-size:15px}
+        
+        /* Panel - Bilgi Alanı (Koyu Kömür Rengi) */
+        .panel{
+            background:rgba(44, 62, 80, 0.95); /* YENİ: Koyu Kömür Rengi (Hafif şeffaflaştırıldı) */
+            color:white;
+            padding:15px 20px;
+            box-shadow:0 -2px 10px rgba(0,0,0,.15);
+            min-height:70px;
+            transition:all 0.3s ease;
+            width: 100%;
+            box-sizing: border-box;
+            z-index: 510;
+        }
+        .panel-content{font-size:14px;line-height:1.5;}
+        .panel-title{font-weight:bold;font-size:16px;margin-bottom:6px;color:#ecf0f1;} /* Açık gri başlık rengi */
+        
+        /* Dipnot */
+        .footer{
+            background:#111;
+            color:#fff;
+            padding:8px 0;
+            text-align: center;
+            font-size:12px;
+            z-index:520;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Özel İkon Stili (noktalar için) */
+        .circle-icon{}
+    </style>
+</head>
+<body>
+    <div id="header-title">
+        MEKANSAL VERİLERİ HARİTAYA AKTARMA
+    </div>
+
+    <div class="main-content">
+        <div id="map"></div>
+
+        <div class="controls" id="controls">
+            <strong>Mekansal Veri Seçiniz</strong>
+            <label><input type="checkbox" id="roadsCB" checked/> Ulaşım Yolları</label>
+
+            <label><input type="checkbox" id="schoolsCB"/> Okullar</label>
+            <label><input type="checkbox" id="hospitalsCB"/> Hastaneler</label>
+            <label><input type="checkbox" id="parksCB"/> Parklar</label>
+            <label><input type="checkbox" id="sportsCB"/> Spor Tesisleri</label>
+            <label><input type="checkbox" id="municipalityCB"/> Belediye Binası</label>
+            <label><input type="checkbox" id="mosquesCB"/> Camiler</label>
+        </div>
+    </div>
+    
+    <div class="panel" id="infoPanel">
+        </div>
+
+    <div class="footer">Hazırlayan: Zeynep Koşar - 312 - 10/C</div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Harita Merkezi (Kahramankazan)
+        const CENTER = [40.205337, 32.680665];
+        const map = L.map('map').setView(CENTER, 15);
+
+        // Uydu Katmanı
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles © Esri, Maxar'
+        }).addTo(map);
+
+        // ======================================================================
+        // 1. ULAŞIM YOLLARI (OpenStreetMap Katmanı)
+        // ======================================================================
+        
+        const roadsLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            opacity: 0.6, // Uydu katmanı üzerinden görülebilmesi için şeffaflık
+        });
+        
+        roadsLayer.addTo(map);
+        
+        // ======================================================================
+        // 2. NOKTASAL VERİLER (Koordinatlar Aynen Korundu)
+        // ======================================================================
+
+        function circleIcon(color){
+            return L.divIcon({
+                className:'circle-icon',
+                html:`<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid white"></div>`
+            });
+        }
+
+        const icons = {
+            schools: circleIcon('#4fc3f7'),
+            hospitals: circleIcon('#e57373'),
+            parks: circleIcon('#81c784'),
+            sports: circleIcon('#7986cb'),
+            municipality: circleIcon('#ba68c8'),
+            mosques: circleIcon('#ff8a65')
+        };
+
+        const points = {
+            schools: [ [40.208769, 32.679766],[40.201040, 32.698542],[40.211992, 32.686858],[40.203336, 32.672498],[40.206254, 32.677202],[40.207367, 32.677352]],
+            hospitals: [ [40.196275, 32.677932],[40.203554, 32.679927] ],
+            parks: [ [40.203719, 32.687813],[40.209676, 32.679235],[40.202100, 32.683538],[40.203926, 32.689894] ],
+            sports: [ [40.191708, 32.677031],[40.196931, 32.674284],[40.191786, 32.673490],[40.201015, 32.690479] ],
+            municipality: [  [40.205950, 32.680721] ],
+            mosques: [ [40.206851, 32.684584],[40.205769, 32.669950],[40.205750, 32.670014] ]
+        };
+
+        function addPoints(list, icon, title){
+            const g = L.layerGroup();
+            list.forEach((latlng)=>{
+                const m = L.marker(latlng,{icon:icon}).bindPopup(title);
+                g.addLayer(m);
+            });
+            return g;
+        }
+
+        const layers = {
+            roads: roadsLayer, 
+            schools: addPoints(points.schools, icons.schools, 'Okul'),
+            hospitals: addPoints(points.hospitals, icons.hospitals, 'Hastane'),
+            parks: addPoints(points.parks, icons.parks, 'Park'),
+            sports: addPoints(points.sports, icons.sports, 'Spor Tesisi'),
+            municipality: addPoints(points.municipality, icons.municipality, 'Belediye Binası'),
+            mosques: addPoints(points.mosques, icons.mosques, 'Cami')
+        };
+
+        // ======================================================================
+        // 3. İNTERAKTİFLİK VE BİLGİ PANELİ
+        // ======================================================================
+
+        const infoPanel = document.getElementById('infoPanel');
+        
+        function updatePanel(layerName) {
+            let baslik;
+            let aciklama;
+            const amacBilgisi = "Bu uygulama, CBS prensipleriyle mekansal verilerin dağılım ve ilişkilerini görselleştirmeyi amaçlar.";
+
+            if (layerName === 'roads') {
+                baslik = "Ulaşım Yolları (OpenStreetMap)";
+                aciklama = "Ulaşım yolları, OpenStreetMap verisi kullanılarak gösterilir. Bu, detaylı ve güncel bir yol ağı sağlar.";
+            } else if (layerName) {
+                const layerTitle = document.querySelector(`#${layerName}CB`).parentElement.textContent.trim();
+                baslik = `${layerTitle} (Nokta Gösterimi)`;
+                aciklama = "Seçilen tesisler, haritada coğrafi konumu belirten **özel sembollü nokta** (Marker) tekniğiyle belirtilir.";
+            } else {
+                baslik = "Katman Seçimi Yok";
+                aciklama = "Lütfen yukarıdaki kutucuklardan birini işaretleyerek harita katmanlarını aktif edin.";
+            }
+
+            infoPanel.innerHTML = `
+                <div class="panel-content">
+                    <span class="panel-title">BİLGİ:</span> ${amacBilgisi}
+                    <hr style="margin:4px 0; border-top:1px solid #ecf0f1">
+                    <span class="panel-title">GÖSTERİM BİLGİSİ:</span> ${baslik} - ${aciklama}
+                </div>
+            `;
+        }
+
+        let activeLayers = ['roads'];
+
+        function toggleLayer(id, layer, layerName){
+            document.getElementById(id).addEventListener('change', e => {
+                if(e.target.checked){
+                    layer.addTo(map);
+                    activeLayers.push(layerName);
+                } else {
+                    map.removeLayer(layer);
+                    activeLayers = activeLayers.filter(name => name !== layerName);
+                }
+                
+                updatePanel(activeLayers.length > 0 ? activeLayers[activeLayers.length - 1] : null);
+            });
+        }
+        
+        toggleLayer('roadsCB', layers.roads, 'roads');
+        toggleLayer('schoolsCB', layers.schools, 'schools');
+        toggleLayer('hospitalsCB', layers.hospitals, 'hospitals');
+        toggleLayer('parksCB', layers.parks, 'parks');
+        toggleLayer('sportsCB', layers.sports, 'sports');
+        toggleLayer('municipalityCB', layers.municipality, 'municipality');
+        toggleLayer('mosquesCB', layers.mosques, 'mosques');
+        
+        updatePanel('roads');
+
+        // ======================================================================
+        // 4. KOLAY KOORDİNAT BULUCU
+        // ======================================================================
+
+        map.on('click', function(e) {
+            const lat = e.latlng.lat.toFixed(6); 
+            const lng = e.latlng.lng.toFixed(6); 
+            const koordinatMesaji = `Tıkladığınız Yer: [${lat}, ${lng}]`;
+
+            console.log("KOORDİNAT BULUCU (Kopyalayın): ", koordinatMesaji);
+
+            L.popup()
+                .setLatLng(e.latlng)
+                .setContent(`<b>Yeni Koordinat:</b><br/>[${lat}, ${lng}]<br/>Konsoldan kopyalayın.`)
+                .openOn(map);
+        });
+        
+    </script>
+</body>
+</html>
